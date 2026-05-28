@@ -18,3 +18,5 @@ qc_report.txt
 
 # OS files
 .DS_Store
+*.docx
+.~lock*
