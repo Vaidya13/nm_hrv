@@ -1,0 +1,9 @@
+numpy
+pandas
+scipy
+matplotlib
+neurokit2
+mne
+wfdb
+pyyaml
+openpyxl

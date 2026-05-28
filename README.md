@@ -1,7 +1,6 @@
-# HRV-harmonization-pipeline
-Kubios-benchmarked HRV harmonization pipeline
+# nm_hrv
 
-A Python package for large-scale ECG heart rate variability (HRV)
+`nm_hrv` is a Python package for large-scale ECG heart rate variability (HRV)
 analysis across diverse cohorts (adults, adolescents, children).
 
 It implements the Task Force (1996) / Kubios standard frequency-domain pipeline:

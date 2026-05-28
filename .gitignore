@@ -1,0 +1,20 @@
+# Python generated files — never commit these
+__pycache__/
+*.py[cod]
+*.egg-info/
+*.egg
+dist/
+build/
+
+# Pipeline outputs — data stays local, never on Git
+output/
+*/output/
+rr_exports/
+*.xlsx
+*.csv
+config_used.json
+diagnostic_report.txt
+qc_report.txt
+
+# OS files
+.DS_Store
