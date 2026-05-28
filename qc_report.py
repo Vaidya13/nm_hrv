@@ -181,12 +181,12 @@ def _build_report(df_all, config):
         conf_s  = f"{conf:>11.3f}" if not np.isnan(conf) else f"{'—':>11}"
 
         # Flag participants with very low HRV yield
-        flag = "  ⚠" if pct_h < 20 else "   "
+        flag = "  " if pct_h < 20 else "   "
         lines.append(f"{flag} {str(pid):<20} {n_w:>7} {n_h:>6} {pct_h:>5.0f}% {rmssd_s} {conf_s}")
 
     lines += [
         "",
-        "  ⚠ = participant has < 20% windows with HRV (check data quality)",
+        "   = participant has < 20% windows with HRV (check data quality)",
     ]
 
     # ---- Actionable notes -------------------------------------------------
@@ -219,7 +219,7 @@ def _generate_notes(df_all, df_hrv, config, total, n_hrv):
     # Low overall HRV yield
     if hrv_pct < 30:
         notes.append(
-            f"⚠ Low HRV yield ({hrv_pct:.0f}%). Run diagnose.py to identify "
+            f" Low HRV yield ({hrv_pct:.0f}%). Run diagnose.py to identify "
             "the specific threshold causing rejections and get config recommendations."
         )
 
@@ -228,7 +228,7 @@ def _generate_notes(df_all, df_hrv, config, total, n_hrv):
     if n_art / total > 0.30:
         cfg_art = config.get("max_artifact_fraction", 0.05)
         notes.append(
-            f"⚠ {n_art/total*100:.0f}% of windows rejected for too_many_artifacts. "
+            f" {n_art/total*100:.0f}% of windows rejected for too_many_artifacts. "
             f"Current max_artifact_fraction={cfg_art:.2f}. "
             f"For dry/wearable ECG consider raising to 0.15–0.20."
         )
@@ -239,7 +239,7 @@ def _generate_notes(df_all, df_hrv, config, total, n_hrv):
         if fr.get("low_template_corr", 0) / total > 0.20:
             cfg_tc = config.get("template_corr_min", 0.80)
             notes.append(
-                f"⚠ Many windows failing template_corr check (threshold={cfg_tc:.2f}). "
+                f" Many windows failing template_corr check (threshold={cfg_tc:.2f}). "
                 f"Dry/wearable ECG typically needs 0.50–0.65. "
                 f"Consider lowering template_corr_min."
             )
@@ -251,7 +251,7 @@ def _generate_notes(df_all, df_hrv, config, total, n_hrv):
             med_conf = df_hrv["HRV_Confidence"].median()
         if not np.isnan(med_conf) and med_conf < 0.65:
             notes.append(
-                f"⚠ Median HRV_Confidence = {med_conf:.2f} (< 0.65). "
+                f" Median HRV_Confidence = {med_conf:.2f} (< 0.65). "
                 "Signal quality is low. Use HRV_Confidence as a covariate "
                 "in your normative model rather than a hard exclusion threshold."
             )
@@ -263,12 +263,12 @@ def _generate_notes(df_all, df_hrv, config, total, n_hrv):
             zero_hrv.append(str(pid))
     if zero_hrv:
         notes.append(
-            f"⚠ {len(zero_hrv)} participant(s) have zero HRV windows: "
+            f" {len(zero_hrv)} participant(s) have zero HRV windows: "
             f"{', '.join(zero_hrv[:5])}{'...' if len(zero_hrv) > 5 else ''}. "
             "Run diagnose.py on their files specifically."
         )
 
     if not notes:
-        notes.append("✓ No major issues detected. Results look ready for harmonization.")
+        notes.append(" No major issues detected. Results look ready for harmonization.")
 
     return notes
