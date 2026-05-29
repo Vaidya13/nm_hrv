@@ -2,11 +2,12 @@ pipeline_version: "1.0"
 
 data_format: "wfdb"
 
-data_folder: "/zi/flstorage/group_kjp/data/ECG/9_mit-bih/mit-bih_data"
+data_folder: "path/to/data/folder"
 
-metadata_csv: "/zi/flstorage/group_kjp/data/ECG/9_mit-bih/metadata.csv"
+metadata_csv: "path/to/metadata.csv"
 
-output_dir: "/zi/flstorage/group_kjp/data/ECG/9_mit-bih/output"
+output_dir: "path/to/output/folder"
+
 
 # ===================================
 # METADATA COLUMNS TO CARRY
@@ -15,16 +16,25 @@ output_dir: "/zi/flstorage/group_kjp/data/ECG/9_mit-bih/output"
 # participant_id and age are always carried automatically.
 # Leave empty ([]) to carry ALL scalar columns (safe default).
 #
-# For cross-cohort normative modelling include:
-#   sex, bmi, body_position, time_of_day, diagnosis, cohort, device
+# For a normative model, capture as many of these as your study has:
+#   body_position  : supine | seated | standing
+#   time_of_day    : e.g. "08:30" or hour as integer
+#   sex            : male | female | other
+#   bmi            : numeric
+#   diagnosis      : e.g. healthy | T2DM | HF
+#   cohort         : study/dataset name (essential for harmonization)
+#   device         : recorder model
+#   recording_date : YYYY-MM-DD
 #
 # Example:
 #   metadata_columns_to_carry:
 #     - sex
 #     - bmi
 #     - body_position
+#     - diagnosis
 #     - cohort
 #
+# To carry everything:
 metadata_columns_to_carry: []
  
 # ===================================
@@ -41,22 +51,23 @@ sqi_mode: "flag"
 # ===================================
 # ECG PREPROCESSING
 # ===================================
-hp_cutoff:    0.5
-lp_cutoff:    40.0
-notch_freq:   60.0     # MIT-BIH and most US PhysioNet datasets → 60 Hz
-filter_order: 2
+hp_cutoff:    0.5      # High-pass corner frequency (Hz)
+lp_cutoff:    40.0     # Low-pass corner frequency (Hz)
+notch_freq:   60.0     # Mains interference - use 60.0 for US recordings
+filter_order: 2        # Butterworth filter order
  
 # ===================================
-# RR PLAUSIBILITY
+# RR PLAUSIBILITY  (hard limits)
 # ===================================
-rr_min_ms:    300.0
+rr_min_ms:    300.0    # Overridden by age-adaptive rules if enabled
 rr_max_ms:    2000.0
  
 # ===================================
 # LOCAL OUTLIER DETECTION
 # ===================================
-local_window_beats:  11
-local_dev_thresh:    0.20
+local_window_beats:  11    # Beats in local context window (each side)
+local_dev_thresh:    0.20  # Minimum relative deviation floor
+                           # Adaptive MAD threshold used when larger
  
 # ===================================
 # MISSED / EXTRA BEAT THRESHOLDS
@@ -67,23 +78,34 @@ extra_beat_gap_factor:  0.5
 # ===================================
 # ARTIFACT TOLERANCE
 # ===================================
-max_artifact_fraction: 0.05
+max_artifact_fraction: 0.05   # > 5 % - window rejected
  
 # ===================================
 # HRV WINDOWING
 # ===================================
-window_sec: 300
-keep_first_window_only: false
+window_sec: 300               # 5-minute windows (Task Force standard)
+                              # Use ONLY the first 5 minutes for cross-cohort
+                              # harmonization - set keep_first_window_only: true
+keep_first_window_only: false # true = one 5-min window per recording
  
 # ===================================
 # HRV COMPUTATION
 # ===================================
-min_rr_for_hrv:          150
-smoothness_prior_lambda: 300
+min_rr_for_hrv:          150  # Minimum NN intervals for valid HRV
+                              # 150 beats ~2 min at 70 bpm - strict guard
+                              # for frequency-domain resolution at 4 Hz
+smoothness_prior_lambda: 300  # Tarvainen detrending lambda
+                              # Kubios default = 300 for 5-min adults
+                              # Use 500 for children or long recordings
  
 # ===================================
 # PSD SETTINGS  (Welch)
 # ===================================
+# nperseg=256, noverlap=128 with fs=4 Hz gives:
+#   freq resolution = 4/256 = 0.0156 Hz
+#   LF band (0.04-0.15 Hz) resolved by ~7 bins
+#   HF band (0.15-0.40 Hz) resolved by ~16 bins
+# These are the recommended defaults from the HRV literature.
 psd_nperseg:  256
 psd_noverlap: 128
 psd_window:   "hann"
