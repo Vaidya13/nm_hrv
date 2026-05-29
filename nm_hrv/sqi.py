@@ -249,17 +249,14 @@ def classify_sqi(sqi):
     Score SQI features and return a 4-tier quality label plus numeric score.
 
     Scoring rubric (each criterion = 1 point, max = 6):
-
-    ┌─────────────────────────────┬───────────────────────┐
-    │  Criterion                  │  Threshold            │
-    ├─────────────────────────────┼───────────────────────┤
-    │  QRS power ratio            │  > 0.40               │
-    │  Template correlation       │  > 0.80               │
-    │  SNR                        │  > 10 dB              │
-    │  RR coefficient of variation│  < 0.20               │
-    │  Flatline fraction          │  < 0.05               │
-    │  HR plausible               │  [35-180 bpm]         │
-    └─────────────────────────────┴───────────────────────┘
+    
+    Criterion and Threshold
+    QRS power ratio  > 0.40 
+    Template correlation   > 0.80 
+    SNR  > 10 dB 
+    RR coefficient of variation < 0.20  
+    Flatline fraction   < 0.05  
+    HR plausible 35-180 bpm
 
     Returns
     -------
