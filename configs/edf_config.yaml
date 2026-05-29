@@ -2,11 +2,11 @@ pipeline_version: "1.0"
 
 data_format: "edf"
 
-data_folder: "/zi/flstorage/group_kjp/data/ECG/test_run/data"
+data_folder: "path/to/data/folder"
 
-metadata_csv: "/zi/flstorage/group_kjp/data/ECG/test_run/metadata.csv"
+metadata_csv: "path/to/metadata.csv"
 
-output_dir: "/zi/flstorage/group_kjp/data/ECG/test_run/output"
+output_dir: "path/to/output/folder"
 
 
 # ===================================
