@@ -53,7 +53,7 @@ sqi_mode: "flag"
 # ===================================
 hp_cutoff:    0.5      # High-pass corner frequency (Hz)
 lp_cutoff:    40.0     # Low-pass corner frequency (Hz)
-notch_freq:   60.0     # Mains interference - use 60.0 for US recordings
+notch_freq:   50.0     # Mains interference - use 60.0 for US recordings
 filter_order: 2        # Butterworth filter order
  
 # ===================================
