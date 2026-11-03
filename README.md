@@ -11,7 +11,7 @@ It implements the Task Force (1996) / Kubios standard frequency-domain pipeline:
 4. Cubic spline interpolation of artifact beats
 5. 4 Hz resampling onto a regular time grid
 6. Smoothness-priors detrending (Tarvainen et al. 2002)
-7. Welch PSD — 8 windows, 50 % overlap, Hamming taper
+7. Welch PSD — Hann window, 256 samples (64 s at 4 Hz), 50 % overlap
 8. LF / HF / VLF power extraction (Task Force bands)
 9. Nonlinear HRV (SD1, SD2, SD1/SD2)
 10. Hierarchical SQI classification + HRV confidence score
@@ -46,7 +46,15 @@ nm_hrv/
 
 # Installation
 
+# 1. Clone the repository
+git clone https://github.com/your-org/nm_hrv.git
+cd nm_hrv
+
+# 2. Install dependencies
 pip install -r requirements.txt
+
+# 3. Install the package (editable mode recommended for development)
+pip install -e .
 
 ---
 
