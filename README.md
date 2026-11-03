@@ -46,6 +46,7 @@ nm_hrv/
 
 # Installation
 
+```bash
 # 1. Clone the repository
 git clone https://github.com/your-org/nm_hrv.git
 cd nm_hrv
@@ -55,16 +56,16 @@ pip install -r requirements.txt
 
 # 3. Install the package (editable mode recommended for development)
 pip install -e .
-
+```
 ---
 
-# Example Usage
+# Quick start
 
 ```bash
 # EDF cohort
 python run_pipeline.py --config configs/edf_config.yaml
 
-# PhysioNet / WFDB cohort
+# WFDB cohort
 python run_pipeline.py --config configs/wfdb_config.yaml
 ```
 
