@@ -4,7 +4,7 @@ rr.py
 RR / NN interval processing:
 
   1. R-peak detection via neurokit2
-  2. Artifact classification using adaptive Lipponen & Tarvainen (2019)
+  2. Artifact classification using adaptive adaptive local-median / MAD thresholds [based on Lipponen & Tarvainen (2019)]
      thresholds — automatically adjusts to variable HR, sleep, children,
      arrhythmia burden without per-cohort config changes.
   3. Cubic spline interpolation of artifact beats
