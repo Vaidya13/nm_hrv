@@ -75,10 +75,12 @@ Edit the relevant config YAML to point at your data folder and metadata CSV befo
 
 # Outputs
 
-- all_hrv_results.xlsx        # 	One row per participant × window
-- participant_summaries.xlsx  #   One row per participant (means over good windows)
-- rr_exports/                 #   Raw RR, artifact flags and corrected NN per window
-- config_used.json            #  	Exact config used for reproducibility
+| File | Description |
+|------|-------------|
+| `all_hrv_results.xlsx` | One row per participant × window |
+| `participant_summaries.xlsx` | One row per participant (means over good windows) |
+| `rr_exports/<id>_segment_N.csv` | Raw RR, artifact flags and corrected NN per window (see note below) |
+| `config_used.json` | Exact config used (reproducibility) |
 
 Flag codes: 1 too short, 2 too long, 3 local outlier, 4 missed, 5 extra, 6 spike
 
@@ -86,10 +88,13 @@ Flag codes: 1 too short, 2 too long, 3 local outlier, 4 missed, 5 extra, 6 spike
 
 # Methods & references
 
-Task Force of ESC & NASPE. Heart rate variability: standards of measurement. Circulation 1996;93:1043–1065.
-Tarvainen MP et al. An advanced detrending method with application to HRV analysis. IEEE Trans Biomed Eng 2002;49(2):172–175.
-Lipponen JA, Tarvainen MP. A robust algorithm for HRV time series artefact correction. J Med Eng Technol 2019;43(3):173–181.
-Kubios HRV Scientific Edition — preprocessing documentation, 2024.
+- Task Force of ESC & NASPE. Heart rate variability: standards of measurement.
+  Circulation 1996;93:1043–1065.
+- Tarvainen MP et al. An advanced detrending method with application to HRV analysis.
+  IEEE Trans Biomed Eng 2002;49(2):172–175.
+- Lipponen JA, Tarvainen MP. A robust algorithm for HRV time series artefact correction.
+  J Med Eng Technol 2019;43(3):173–181.
+- Kubios HRV Scientific Edition — preprocessing documentation, 2024.
 
 
 
