@@ -5,7 +5,7 @@ setup(
     version="1.0",
     author="Nilakshi Vaidya",
     description=(
-        "Kubios-benchmarked HRV harmonization pipeline "
+        "HRV preprocessing pipeline "
         "for EDF, WFDB, and waveform table inputs. "
         "Supports age-adaptive artifact correction, 4 Hz cubic spline resampling, "
         "smoothness-priors detrending, and Welch PSD."
