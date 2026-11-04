@@ -1,5 +1,5 @@
 """
-Kubios-benchmarked HRV harmonization framework
+HRV preprocessing pipeline
 
 Supports:
   - Age-adaptive artifact correction (Lipponen & Tarvainen 2019)
