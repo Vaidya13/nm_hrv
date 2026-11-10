@@ -4,22 +4,22 @@ pipeline.py
 End-to-end HRV processing pipeline.
 
 SQI mode (controlled via config key  sqi_mode):
-  "flag"  (default) - SQI is computed and stored but never blocks HRV
+  "flag"  (default) — SQI is computed and stored but never blocks HRV
                        extraction.  Every window that has detectable peaks
                        and acceptable artifact burden gets HRV metrics.
                        Quality label reflects SQI: "good" vs "good_low_sqi".
                        This is the correct mode for normative modelling across
                        heterogeneous cohorts (dry electrodes, clinical devices).
-  "gate"             - classic hard-stop: windows failing SQI thresholds are
+  "gate"             — classic hard-stop: windows failing SQI thresholds are
                        labelled "poor_sqi" and HRV is not computed.  Use only
                        if you need strict QC for a single clean-signal cohort.
 
 Outputs
 -------
-  all_hrv_results.xlsx        - one row per (participant x window)
-  participant_summaries.xlsx  - one row per participant
-  rr_exports/<id>_seg_N.csv   - raw / corrected RR per window with HRV
-  config_used.json            - frozen config snapshot
+  all_hrv_results.xlsx        – one row per (participant × window)
+  participant_summaries.xlsx  – one row per participant
+  rr_exports/<id>_seg_N.csv   – raw / corrected RR per window with HRV
+  config_used.json            – frozen config snapshot
 """
 
 import json
@@ -40,9 +40,10 @@ from .hrv           import compute_hrv
 from .summaries     import summarize_hrv_cohort
 from .utils         import get_age_group
 from .qc_report     import write_qc_report
+from .segments      import load_segments_csv, find_overlaps, plan_windows
 
 
-# Columns that hold raw arrays - excluded from Excel / summaries
+# Columns that hold raw arrays — excluded from Excel / summaries
 _ARRAY_COLS = {"ecg", "rr_ms_raw", "rr_ms_nn", "rr_flags"}
 
 # HRV columns guaranteed to exist in every row with HRV computed (NaN-filled otherwise)
@@ -68,11 +69,11 @@ def compute_hrv_confidence(sqi, artifact_fraction):
 
     Weights
     -------
-      40 % SQI score (0-6 points, normalised)
-      40 % (1 - artifact_fraction)
+      40 % SQI score (0–6 points, normalised)
+      40 % (1 – artifact_fraction)
       20 % template correlation
 
-    >= 0.80 - publication-quality data.
+    ≥ 0.80 → publication-quality data.
     """
     sqi_norm  = np.clip(sqi.get("SQI_Score", 0) / 6.0, 0, 1)
     art_score = np.clip(1.0 - artifact_fraction, 0, 1)
@@ -86,9 +87,15 @@ def compute_hrv_confidence(sqi, artifact_fraction):
 # SINGLE-RECORD PROCESSOR
 # ===========================================================================
 
-def process_record(row, config):
+def process_record(row, config, segments=None):
     """
     Process one participant record into per-window HRV rows.
+
+    segments=None (default): the whole recording is analysed in consecutive
+    window_sec windows.
+    segments=<rows of the segments table for this participant>: only the listed
+    parts of the recording are analysed (see segments.py). Listed segments that
+    cannot be used are returned in ``df.attrs["skipped_segments"]``.
 
     With sqi_mode="flag" (default):
       - SQI metrics are always computed and stored.
@@ -99,7 +106,7 @@ def process_record(row, config):
                   "hrv_failed" if the signal cannot produce HRV at all.
 
     With sqi_mode="gate":
-      - Original behaviour: windows failing SQI are labelled "poor_sqi"
+      - Windows failing SQI are labelled "poor_sqi"
         and HRV is not computed.
     """
     fs         = float(row["frequency"])
@@ -109,7 +116,7 @@ def process_record(row, config):
 
     # ---- Duration guard ----------------------------------------------------
     duration_sec = len(ecg) / fs
-    if duration_sec < window_sec:
+    if segments is None and duration_sec < window_sec:
         print(
             f"  [skip] {row['participant_id']}: "
             f"recording too short ({duration_sec:.1f}s < {window_sec}s required)"
@@ -128,18 +135,38 @@ def process_record(row, config):
     age                    = row[age_col] if age_col in row.index else np.nan
     keep_first_window_only = config.get("keep_first_window_only", False)
 
+    # ---- Analysis windows ----------------------------------------------------
+    # Whole-recording mode: consecutive window_sec windows (unchanged behaviour).
+    # Segment mode: windows inside the listed segments only.
+    skipped = []
+    if segments is None:
+        windows = []
+        for start in range(0, len(ecg_pp), samples_per_window):
+            segment_idx = start // samples_per_window
+
+            if keep_first_window_only and segment_idx > 0:
+                break
+
+            # Require ≥ 80 % window coverage
+            if len(ecg_pp[start: start + samples_per_window]) < samples_per_window * 0.8:
+                continue
+
+            windows.append({
+                "start": start, "stop": start + samples_per_window,
+                "idx": segment_idx, "meta": {}, "window_sec": float(window_sec),
+            })
+    else:
+        windows, skipped = plan_windows(segments, fs, len(ecg_pp), config)
+        for k, w in enumerate(windows):
+            w["idx"]        = k
+            w["window_sec"] = (w["stop"] - w["start"]) / fs   # actual length analysed
+
     outputs = []
 
-    for start in range(0, len(ecg_pp), samples_per_window):
-        segment     = ecg_pp[start: start + samples_per_window]
-        segment_idx = start // samples_per_window
-
-        if keep_first_window_only and segment_idx > 0:
-            break
-
-        # Require ≥ 80 % window coverage
-        if len(segment) < samples_per_window * 0.8:
-            continue
+    for w in windows:
+        start       = w["start"]
+        segment     = ecg_pp[w["start"]: w["stop"]]
+        segment_idx = w["idx"]
 
         pid = row["participant_id"]
 
@@ -147,8 +174,9 @@ def process_record(row, config):
             "participant_id":   pid,
             "segment_idx":      segment_idx,
             "window_start_sec": float(start / fs),
-            "window_sec":       float(window_sec),
+            "window_sec":       w["window_sec"],
             "AgeGroup":         get_age_group(age),
+            **w["meta"],
         }
 
         # ---- SQI (always computed) -----------------------------------------
@@ -251,7 +279,10 @@ def process_record(row, config):
         out = _attach_metadata(out, row, config)
         outputs.append(out)
 
-    return pd.DataFrame(outputs)
+    df_out = pd.DataFrame(outputs)
+    if segments is not None:
+        df_out.attrs["skipped_segments"] = skipped
+    return df_out
 
 
 # ===========================================================================
@@ -299,13 +330,48 @@ def run_pipeline(config):
 
     print(f"[pipeline] Found {len(files)} file(s) to process.  SQI mode: {sqi_mode}")
 
+    # ---- Optional: analyse only the segments listed in a CSV ---------------
+    df_seg = None
+    seg_csv = config.get("segments_csv", "")
+    if seg_csv:
+        df_seg = load_segments_csv(seg_csv)      # raises with row numbers if invalid
+        print(f"[pipeline] Segment mode: {len(df_seg)} segment(s) for "
+              f"{df_seg['participant_id'].nunique()} participant(s) from {seg_csv}")
+        for pid, a, b in find_overlaps(df_seg):
+            print(f"  [warn] {pid}: segments in CSV rows {a} and {b} overlap "
+                  "(the overlapping part is analysed twice)")
+        if config.get("min_rr_for_hrv", 150) > 40:
+            print(f"  [warn] min_rr_for_hrv={config.get('min_rr_for_hrv', 150)} is high for "
+                  "short segments: a 60 s window has roughly 50-100 NN intervals. "
+                  "Use min_rr_for_hrv: 30 (see README, 'Analysing part of a recording').")
+        ids_in_files = {Path(f).stem for f in files}
+        missing = sorted(set(df_seg["participant_id"]) - ids_in_files)
+        if missing:
+            print(f"  [warn] {len(missing)} participant(s) in the segments CSV have no "
+                  f"{data_format.upper()} file: {', '.join(missing[:10])}"
+                  f"{' ...' if len(missing) > 10 else ''}")
+
     all_results = []
+    skipped_all = []
 
     for file in files:
+        pid_file = Path(file).stem
+        segs = None
+        if df_seg is not None:
+            segs = df_seg[df_seg["participant_id"] == pid_file]
+            if len(segs) == 0:
+                print(f"\n[pipeline] Skipping {Path(file).name}: not listed in segments CSV")
+                continue
+
         print(f"\n[pipeline] Processing: {Path(file).name}")
         try:
             row       = load_ecg_record(file, data_format, df_metadata)
-            df_result = process_record(row, config)
+            df_result = process_record(row, config, segments=segs)
+
+            if segs is not None:
+                for sk in df_result.attrs.get("skipped_segments", []):
+                    skipped_all.append({"participant_id": pid_file, **sk["meta"],
+                                        "reason": sk["failure_reason"]})
 
             if df_result is not None and len(df_result) > 0:
                 all_results.append(df_result)
@@ -318,6 +384,12 @@ def run_pipeline(config):
 
         except Exception as exc:
             print(f"  [ERROR] {Path(file).name}: {exc}")
+
+    if skipped_all:
+        pd.DataFrame(skipped_all).to_csv(
+            os.path.join(output_dir, "skipped_segments.csv"), index=False)
+        print(f"\n[pipeline] {len(skipped_all)} listed segment(s) could not be analysed "
+              "(too short or outside the recording): see skipped_segments.csv")
 
     if not all_results:
         print("\n[pipeline] No valid outputs produced. Check data and config.")
@@ -387,6 +459,9 @@ def _export_rr_csvs(df_all, output_dir):
         if not isinstance(rr_raw, (list, np.ndarray)):
             continue
 
+        rr_nn    = row.get("rr_ms_nn",  None)
+        rr_flags = row.get("rr_flags",  None)
+
         n        = len(rr_raw)
         rr_nn    = row.get("rr_ms_nn",  None)
         rr_flags = row.get("rr_flags",  None)
@@ -411,7 +486,7 @@ def _export_rr_csvs(df_all, output_dir):
         rr_df.to_csv(os.path.join(rr_dir, fname), index=False)
         n_exported += 1
 
-    print(f"[pipeline] Saved: {n_exported} RR export CSV(s) - rr_exports/")
+    print(f"[pipeline] Saved: {n_exported} RR export CSV(s) → rr_exports/")
 
 
 # ===========================================================================
@@ -432,7 +507,7 @@ def _attach_metadata(out, row, config=None):
     Copy metadata columns from the loader row into the output dict.
 
     If config contains 'metadata_columns_to_carry' (a list), only those
-    columns are copied.  Empty list or absent key - copy all scalar columns.
+    columns are copied.  Empty list or absent key → copy all scalar columns.
     """
     carry = None
     if config is not None:
@@ -479,7 +554,7 @@ def _print_cohort_summary(df_all):
     has_hrv = df_all["Quality"].isin(["good", "good_low_sqi"])
     n_hrv   = int(has_hrv.sum())
 
-    print("\n--- Cohort Quality Summary ---------------------------------")
+    print("\n─── Cohort Quality Summary ───────────────────────────────────────")
     all_labels = [
         "good", "good_low_sqi",
         "poor_sqi",
@@ -492,10 +567,10 @@ def _print_cohort_summary(df_all):
         pct = n / total * 100
         print(f"  {label:<28} {n:>6}  ({pct:5.1f}%)")
 
-    print(f"  {'-'*46}")
+    print(f"  {'─'*46}")
     print(f"  {'TOTAL':<28} {total:>6}")
     print(f"  {'Windows with HRV computed':<28} {n_hrv:>6}  ({n_hrv/total*100:5.1f}%)")
-    print("-------------------------------------------------------------------")
+    print("──────────────────────────────────────────────────────────────────")
 
     if "HRV_Confidence" in df_all.columns:
         conf = df_all.loc[has_hrv, "HRV_Confidence"].dropna()

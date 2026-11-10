@@ -1,13 +1,13 @@
-pipeline_version: "1.0"
+# ============================================================
+# nm_hrv  –  WFDB / PhysioNet configuration
+# ============================================================
+pipeline_version: "1.1"
 
 data_format: "wfdb"
 
-data_folder: "path/to/data/folder"
-
-metadata_csv: "path/to/metadata.csv"
-
-output_dir: "path/to/output/folder"
-
+data_folder:  "/path/to/your/wfdb_data"
+metadata_csv: "/path/to/your/metadata.csv"
+output_dir:   "/path/to/your/output"
 
 # ===================================
 # METADATA COLUMNS TO CARRY
@@ -16,27 +16,18 @@ output_dir: "path/to/output/folder"
 # participant_id and age are always carried automatically.
 # Leave empty ([]) to carry ALL scalar columns (safe default).
 #
-# For a normative model, capture as many of these as your study has:
-#   body_position  : supine | seated | standing
-#   time_of_day    : e.g. "08:30" or hour as integer
-#   sex            : male | female | other
-#   bmi            : numeric
-#   diagnosis      : e.g. healthy | T2DM | HF
-#   cohort         : study/dataset name (essential for harmonization)
-#   device         : recorder model
-#   recording_date : YYYY-MM-DD
+# For cross-cohort normative modelling include:
+#   sex, bmi, body_position, time_of_day, diagnosis, cohort, device
 #
 # Example:
 #   metadata_columns_to_carry:
 #     - sex
 #     - bmi
 #     - body_position
-#     - diagnosis
 #     - cohort
 #
-# To carry everything:
 metadata_columns_to_carry: []
- 
+
 # ===================================
 # SQI MODE
 # ===================================
@@ -47,69 +38,75 @@ metadata_columns_to_carry: []
 # "gate" — hard stop: windows failing SQI thresholds get Quality="poor_sqi"
 #   and HRV is not computed. Use only for clean single-device cohorts.
 sqi_mode: "flag"
- 
+
 # ===================================
 # ECG PREPROCESSING
 # ===================================
-hp_cutoff:    0.5      # High-pass corner frequency (Hz)
-lp_cutoff:    40.0     # Low-pass corner frequency (Hz)
-notch_freq:   50.0     # Mains interference - use 60.0 for US recordings
-filter_order: 2        # Butterworth filter order
- 
+hp_cutoff:    0.5
+lp_cutoff:    40.0
+notch_freq:   60.0     # MIT-BIH and most US PhysioNet datasets → 60 Hz
+filter_order: 2
+
 # ===================================
-# RR PLAUSIBILITY  (hard limits)
+# RR PLAUSIBILITY
 # ===================================
-rr_min_ms:    300.0    # Overridden by age-adaptive rules if enabled
+rr_min_ms:    300.0
 rr_max_ms:    2000.0
- 
+
 # ===================================
 # LOCAL OUTLIER DETECTION
 # ===================================
-local_window_beats:  11    # Beats in local context window (each side)
-local_dev_thresh:    0.20  # Minimum relative deviation floor
-                           # Adaptive MAD threshold used when larger
- 
+local_window_beats:  11
+local_dev_thresh:    0.20
+
 # ===================================
 # MISSED / EXTRA BEAT THRESHOLDS
 # ===================================
 missed_beat_gap_factor: 1.8
 extra_beat_gap_factor:  0.5
- 
+
 # ===================================
 # ARTIFACT TOLERANCE
 # ===================================
-max_artifact_fraction: 0.05   # > 5 % - window rejected
- 
+max_artifact_fraction: 0.05
+
 # ===================================
 # HRV WINDOWING
 # ===================================
-window_sec: 300               # 5-minute windows (Task Force standard)
-                              # Use ONLY the first 5 minutes for cross-cohort
-                              # harmonization - set keep_first_window_only: true
-keep_first_window_only: false # true = one 5-min window per recording
- 
+window_sec: 300
+keep_first_window_only: false
+
+# ===================================
+# ANALYSE ONLY PART OF A RECORDING (e.g. resting state)
+# ===================================
+# Leave segments_csv empty (default) to analyse the whole recording in 5-min
+# windows, exactly as before. Otherwise give a CSV with columns
+# participant_id,start_sec,stop_sec (times in seconds from the START OF THE
+# RECORDING, or HH:MM:SS) and optional extra columns such as label. Only the
+# listed segments are analysed; files not listed are skipped.
+# When analysing short segments also set  min_rr_for_hrv: 30  (see below).
+# See README, "Analysing part of a recording".
+segments_csv: ""
+segment_windowing: "tile"     # "tile": consecutive window_sec windows inside each
+                              #         segment (a final partial window is kept if
+                              #         long enough)
+                              # "whole": each segment = one window of any length
+min_window_sec: 60            # segments / partial windows shorter than this are
+                              # not analysed (listed in skipped_segments.csv)
+
 # ===================================
 # HRV COMPUTATION
 # ===================================
-min_rr_for_hrv:          150  # Minimum NN intervals for valid HRV
-                              # 150 beats ~2 min at 70 bpm - strict guard
-                              # for frequency-domain resolution at 4 Hz
-smoothness_prior_lambda: 300  # Tarvainen detrending lambda
-                              # Kubios default = 300 for 5-min adults
-                              # Use 500 for children or long recordings
- 
+min_rr_for_hrv:          150
+smoothness_prior_lambda: 300
+
 # ===================================
 # PSD SETTINGS  (Welch)
 # ===================================
-# nperseg=256, noverlap=128 with fs=4 Hz gives:
-#   freq resolution = 4/256 = 0.0156 Hz
-#   LF band (0.04-0.15 Hz) resolved by ~7 bins
-#   HF band (0.15-0.40 Hz) resolved by ~16 bins
-# These are the recommended defaults from the HRV literature.
 psd_nperseg:  256
 psd_noverlap: 128
 psd_window:   "hann"
- 
+
 # ===================================
 # SQI THRESHOLDS
 # ===================================
@@ -118,12 +115,12 @@ template_corr_min:     0.80
 max_flatline_fraction: 0.05
 max_clipping_fraction: 0.01
 min_rpeaks:            20
- 
+
 # ===================================
 # PEAK DETECTION
 # ===================================
 ecg_peaks_method: "pantompkins1985"
- 
+
 # ===================================
 # AGE HANDLING
 # ===================================

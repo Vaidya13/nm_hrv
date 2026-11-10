@@ -14,9 +14,9 @@ Usage
     python diagnose.py --config configs/edf_config.yaml --n_sample 5
 
 The report is also saved as  <output_dir>/diagnostic_report.txt
-so collaborators can send it to you directly.
+so collaborators can send it directly.
 
-No data leaves the machine - the report contains only aggregate statistics,
+No data leaves the machine — the report contains only aggregate statistics,
 no raw ECG samples.
 """
 
@@ -34,6 +34,7 @@ from nm_hrv.loaders      import load_ecg_record
 from nm_hrv.preprocessing import preprocess_ecg
 from nm_hrv.sqi          import compute_sqi, sqi_accept
 from nm_hrv.rr           import detect_rr
+from nm_hrv.segments     import load_segments_csv, plan_windows
 
 
 # ===========================================================================
@@ -62,9 +63,12 @@ def _check(condition):
 # SINGLE-FILE SAMPLER
 # ===========================================================================
 
-def sample_file(file, data_format, config, window_sec):
+def sample_file(file, data_format, config, window_sec, segs=None):
     """
     Load one file and compute SQI + RR stats on its first 3 windows.
+    If ``segs`` (segments-table rows for this participant) is given, the windows
+    are taken from those segments instead of the start of the recording, so the
+    diagnosis describes the part of the data that will actually be analysed.
     Returns a list of dicts (one per window sampled).
     """
     results = []
@@ -75,16 +79,24 @@ def sample_file(file, data_format, config, window_sec):
         ecg    = np.asarray(row["ecg"], dtype=float)
         dur    = len(ecg) / fs
 
-        if dur < window_sec * 0.8:
+        if segs is None and dur < window_sec * 0.8:
             return [{"file": Path(file).name, "error": f"too short ({dur:.0f}s)"}]
 
         ecg_pp = preprocess_ecg(ecg, fs, cfg=config)
         spw    = int(fs * window_sec)
 
-        for start in range(0, min(len(ecg_pp), spw * 3), spw):
-            seg = ecg_pp[start: start + spw]
-            if len(seg) < spw * 0.8:
-                continue
+        if segs is None:
+            spans = [(st, st + spw) for st in range(0, min(len(ecg_pp), spw * 3), spw)
+                     if len(ecg_pp[st: st + spw]) >= spw * 0.8]
+        else:
+            planned, _ = plan_windows(segs, fs, len(ecg_pp), config)
+            spans = [(w["start"], w["stop"]) for w in planned[:3]]
+            if not spans:
+                return [{"file": Path(file).name,
+                         "error": "no usable segment (all shorter than min_window_sec?)"}]
+
+        for st, en in spans:
+            seg = ecg_pp[st:en]
 
             sqi     = compute_sqi(seg, fs)
             passed  = sqi_accept(sqi, config)
@@ -486,6 +498,17 @@ def main():
         print(f"[diagnose] ERROR: no {data_format.upper()} files found in: {data_folder}")
         sys.exit(1)
 
+    df_seg = None
+    if config.get("segments_csv"):
+        df_seg = load_segments_csv(config["segments_csv"])
+        listed = set(df_seg["participant_id"])
+        files  = [f for f in files if Path(f).stem in listed]
+        if not files:
+            print("[diagnose] ERROR: none of the files in data_folder are listed in "
+                  f"{config['segments_csv']}")
+            sys.exit(1)
+        print(f"[diagnose] Segment mode: sampling windows inside the listed segments")
+
     files_total   = len(files)
     files_sampled = min(n_sample, files_total)
     sample_files  = files[:files_sampled]
@@ -498,7 +521,8 @@ def main():
     all_rows = []
     for file in sample_files:
         print(f"  Sampling: {Path(file).name} ...", end=" ", flush=True)
-        rows = sample_file(file, data_format, config, window_sec)
+        segs = None if df_seg is None else df_seg[df_seg["participant_id"] == Path(file).stem]
+        rows = sample_file(file, data_format, config, window_sec, segs=segs)
         n_ok = sum(1 for r in rows if "error" not in r)
         print(f"{n_ok} windows")
         all_rows.extend(rows)
