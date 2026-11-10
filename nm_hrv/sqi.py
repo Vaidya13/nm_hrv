@@ -16,6 +16,9 @@ import scipy.stats
 import scipy.signal
 import neurokit2 as nk
 
+# np.trapz was removed in NumPy 2.4 and np.trapezoid does not exist before
+# NumPy 2.0; use whichever is available (identical numerical result). 
+_trapezoid = getattr(np, "trapezoid", None) or np.trapz
 
 # ===========================================================================
 # LOW-LEVEL SIGNAL FEATURES
@@ -60,12 +63,12 @@ def qrs_power_ratio(signal, fs):
         nperseg=min(4096, len(signal)),
         window="hann",
     )
-    total_power = np.trapz(psd, freqs)
+    total_power = _trapezoid(psd, freqs)
     if total_power <= 0:
         return np.nan
 
     qrs_mask  = (freqs >= 5) & (freqs <= 15)
-    qrs_power = np.trapz(psd[qrs_mask], freqs[qrs_mask])
+    qrs_power = _trapezoid(psd[qrs_mask], freqs[qrs_mask])
 
     return float(qrs_power / total_power)
 

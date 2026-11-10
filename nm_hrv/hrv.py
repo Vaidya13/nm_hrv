@@ -27,6 +27,9 @@ from scipy.interpolate   import CubicSpline
 
 from .utils import smoothness_priors_detrend
 
+# np.trapz was removed in NumPy 2.4 and np.trapezoid does not exist before
+# NumPy 2.0; use whichever is available (identical numerical result). 
+_trapezoid = getattr(np, "trapezoid", None) or np.trapz
 
 # ---------------------------------------------------------------------------
 # Band definitions  (Task Force 1996)
@@ -111,7 +114,7 @@ def compute_frequency_hrv(nn_ms, lambda_val=300, nperseg=256, noverlap=128, wind
         mask = (freqs >= lo) & (freqs <= hi)
         if mask.sum() == 0:
             return np.nan
-        return float(np.trapz(psd[mask], freqs[mask]))
+        return float(_trapezoid(psd[mask], freqs[mask]))
 
     vlf = band_power(*FREQ_BANDS["VLF"])
     lf  = band_power(*FREQ_BANDS["LF"])
